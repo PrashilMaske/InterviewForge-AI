@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Resume - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 40px auto;">
+    <div class="glass-container">
+        <h2 style="margin-bottom: 8px;">Upload Your Resume</h2>
+        <p style="margin-bottom: 24px;">Supported file formats are PDF, DOCX, and TXT (Max 5MB). The AI engine will audit ATS parsing indexes, check grammar, and extract entity portfolios automatically.</p>
+        
+        {% if error %}
+            <div style="background: rgba(248, 113, 113, 0.1); border: 1px solid var(--text-red); border-radius: 8px; padding: 12px; color: var(--text-red); margin-bottom: 20px; font-size: 14px; text-align: center;">
+                {{ error }}
+            </div>
+        {% endif %}
+        
+        <form id="upload-form" method="POST" action="{% url 'resume_upload' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div id="dropzone" style="border: 2px dashed var(--border-glass); border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s;">
+                <div style="font-size: 40px; margin-bottom: 12px;">📁</div>
+                <h4 style="margin-bottom: 6px;">Drag and drop your file here</h4>
+                <p style="font-size: 13px;">or click to browse from local directories</p>
+                <input type="file" id="resume-file-input" name="resume" style="display: none;" accept=".pdf,.docx,.txt">
+            </div>
+            
+            <div style="margin-top: 24px; text-align: right;">
+                <button type="submit" class="btn-primary">Audit Resume</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

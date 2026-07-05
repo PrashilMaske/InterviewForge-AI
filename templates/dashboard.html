@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h2 style="margin-bottom: 4px;">Welcome Back, {{ user.username }}</h2>
+        <p>Monitor your technical competencies, resume scoring growth, and interview session histories.</p>
+    </div>
+    <div>
+        <a href="{% url 'resume_upload' %}" class="btn-primary">Upload New Resume</a>
+    </div>
+</div>
+
+<!-- Metrics summary cards -->
+<div class="metrics-row">
+    <div class="glass-container metric-card">
+        <p>Latest Resume ATS Grade</p>
+        <div class="metric-val" id="metric-resume-score">
+            {% if latest_resume and latest_resume.analysis %}
+                {{ latest_resume.analysis.overall_score }}%
+            {% else %}
+                N/A
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="glass-container metric-card">
+        <p>Streak Duration</p>
+        <div class="metric-val" style="color: var(--accent-secondary);">🔥 {{ user.streak }} Days</div>
+    </div>
+    
+    <div class="glass-container metric-card">
+        <p>Active Drills Finished</p>
+        <div class="metric-val" style="color: var(--accent-primary);">{{ sessions.count }} Mock Runs</div>
+    </div>
+</div>
+
+<!-- Charts section -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 30px; margin-bottom: 40px;">
+    <div class="glass-container">
+        <h3 style="font-size: 16px; margin-bottom: 20px;">📈 Resume Growth Scorecard</h3>
+        <canvas id="resumeGrowthChart" height="200"></canvas>
+    </div>
+    
+    <div class="glass-container">
+        <h3 style="font-size: 16px; margin-bottom: 20px;">📊 Mock Interview Accuracy (Last 5 Sessions)</h3>
+        <canvas id="interviewPerformanceChart" height="200"></canvas>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-bottom: 40px;">
+    <!-- Skill competencies list -->
+    <div class="glass-container">
+        <h3 style="font-size: 16px; margin-bottom: 20px;">⚔️ Skill Matrix Breakdown</h3>
+        <canvas id="skillsRadarChart" height="240"></canvas>
+    </div>
+    
+    <!-- Resumes & Mock logs history -->
+    <div class="glass-container">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">📁 Resume Upload Histories</h3>
+        {% if resumes %}
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-glass); color: var(--text-muted); font-size: 14px;">
+                        <th style="padding: 10px 0;">Version</th>
+                        <th>Filename</th>
+                        <th>ATS Score</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in resumes %}
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 14px;">
+                            <td style="padding: 12px 0; font-weight: 600;">v{{ r.version }}</td>
+                            <td><a href="{{ r.file_url }}" target="_blank" style="color: var(--text-main); text-decoration: none;">{{ r.file_name }}</a></td>
+                            <td>
+                                {% if r.analysis %}
+                                    <span style="color: var(--text-green); font-weight: 600;">{{ r.analysis.overall_score }}/100</span>
+                                {% else %}
+                                    <span style="color: var(--text-muted);">Parsing...</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <a href="{% url 'resume_detail' r.id %}" style="color: var(--accent-primary); text-decoration: none; font-size: 13px; margin-right: 12px;">Audit Details</a>
+                                <a href="{% url 'compare_jd' r.id %}" style="color: var(--accent-secondary); text-decoration: none; font-size: 13px;">Match JD</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="padding: 20px 0; text-align: center;">No resumes uploaded yet. Upload one to start ATS audits.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="glass-container">
+    <h3 style="font-size: 16px; margin-bottom: 15px;">🤖 Mock Interview Attempts</h3>
+    {% if sessions %}
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-glass); color: var(--text-muted); font-size: 14px;">
+                    <th style="padding: 10px 0;">Role Focus</th>
+                    <th>Mode</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Feedback</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in sessions %}
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 14px;">
+                        <td style="padding: 12px 0; font-weight: 600;">{{ s.interview_type }}</td>
+                        <td>{{ s.difficulty|title }}</td>
+                        <td>{{ s.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if s.status == 'completed' %}
+                                <span style="color: var(--text-green);">Completed</span>
+                            {% else %}
+                                <span style="color: #fbbf24;">Active / Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            {% if s.status == 'completed' %}
+                                <a href="{% url 'interview_report' s.id %}" style="color: var(--accent-primary); text-decoration: none; font-weight: 600;">View Report & Roadmap</a>
+                            {% else %}
+                                <a href="{% url 'interview_arena' s.id %}" style="color: #fbbf24; text-decoration: none; font-weight: 600;">Resume Drill</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="padding: 20px 0; text-align: center;">No interview sessions drills registered. Click "Mock Drills" in the header to plan one.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/charts.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,40 @@
+# Environmental variables (keys, secrets, configurations)
+.env
+
+# Databases
+db.sqlite3
+
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Media uploads (user resumes and generated report PDFs)
+media/
+staticfiles/
+
+# System / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Agent workspace caches and logs
+.gemini/
+*.log
+.agents/
+walkthrough.md
+implementation_plan.md
+task.md
+test_groq.py
+test_resume_analyzer.py
+test_question_generator.py

@@ -1,0 +1,670 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Interview Arena - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{% url 'dashboard' %}" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">&larr; Back to Dashboard</a>
+</div>
+
+<div id="interview-arena" data-session-id="{{ session.id }}"
+     style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+
+    <!-- ══════════════════ LEFT: BOT WORKSPACE ══════════════════ -->
+    <div class="glass-container" style="min-height:600px; display:flex; flex-direction:column; align-items:center; position:relative; padding:30px;">
+
+
+        <!-- Header row -->
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-glass); padding-bottom:12px; margin-bottom:20px; z-index:10;">
+            <span id="arena-question-round" style="font-weight:600; color:var(--accent-primary);">Round — of 5</span>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:var(--text-muted);">
+                    <input type="checkbox" id="voice-mode-toggle" style="width:auto; height:auto; margin:0;" checked> 🎙️ Voice Mode
+                </label>
+                <span id="arena-timer-display" style="font-size:14px; font-family:monospace; color:var(--text-muted);">02:00</span>
+            </div>
+        </div>
+
+        <!-- Bot avatar -->
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; margin:10px 0; position:relative;">
+            <div class="bot-wave-wrapper" id="bot-wave-wrapper" style="position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center;">
+                <div class="wave-ring" id="ring-1"></div>
+                <div class="wave-ring" id="ring-2"></div>
+                <div class="wave-ring" id="ring-3"></div>
+                <div id="bot-sphere" style="width:110px; height:110px; border-radius:50%; background:rgba(99,102,241,0.15); border:2px solid var(--accent-primary); backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:center; z-index:5; box-shadow:0 0 30px var(--accent-glow);">
+                    <span id="bot-icon" style="font-size:44px;">🤖</span>
+                </div>
+            </div>
+
+            <!-- Status pill -->
+            <div id="arena-status-indicator" style="margin-top:12px; font-size:13px; font-weight:600; color:#fbbf24; border-radius:20px; background:rgba(251,191,36,0.08); padding:4px 14px; border:1px solid rgba(251,191,36,0.15); display:none;">● Listening...</div>
+
+            <!-- Equalizer bars -->
+            <div id="equalizer-widget" style="display:flex; gap:4px; align-items:center; height:40px; margin-top:12px;">
+                <div class="equalizer-bar bar-1"></div>
+                <div class="equalizer-bar bar-2"></div>
+                <div class="equalizer-bar bar-3"></div>
+                <div class="equalizer-bar bar-4"></div>
+                <div class="equalizer-bar bar-5"></div>
+            </div>
+        </div>
+
+        <!-- Question bubble -->
+        <div style="width:100%; margin-bottom:12px; z-index:10;">
+            <div id="arena-skeleton" style="display:none; padding:15px;">
+                <div class="skeleton" style="height:18px; margin-bottom:8px; width:85%;"></div>
+                <div class="skeleton" style="height:18px; width:50%;"></div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-glass); border-radius:12px; padding:16px 20px;">
+                <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--accent-primary); letter-spacing:1px; margin-bottom:6px;">Interviewer Question</div>
+                <p id="arena-question-text" style="color:var(--text-main); font-size:15px; font-weight:500; line-height:1.5; margin:0;"></p>
+                <div id="arena-difficulty-level" style="font-size:10px; font-weight:600; color:var(--accent-secondary); margin-top:8px; text-transform:uppercase;">Difficulty: —/10</div>
+            </div>
+        </div>
+
+        <!-- Live subtitles bar -->
+        <div id="subtitle-bar" style="display:none; width:100%; min-height:160px; background:rgba(0, 0, 0, 0.25); border:1px solid rgba(255, 255, 255, 0.08); border-radius:16px; padding:24px; margin-bottom:15px; z-index:10; align-items:center; justify-content:center; text-align:center; backdrop-filter:blur(16px); box-shadow:0 10px 30px rgba(0,0,0,0.25);">
+            <p style="margin:0; font-size:22px; font-weight:500; line-height:1.6; word-break:break-word; text-align:center; width:100%;">
+                <span id="sub-final" style="color:var(--text-main);"></span>
+                <span id="sub-interim" style="color:#a78bfa; font-style:italic;"></span>
+            </p>
+        </div>
+
+        <!-- Answer textarea -->
+        <div style="width:100%; margin-bottom:12px; z-index:10;">
+            <textarea id="arena-answer-text" rows="4" readonly
+                      placeholder="Your spoken answer will be transcribed here automatically..."
+                      autocomplete="off" autocapitalize="off" spellcheck="false"
+                      style="width: 100%; resize: none; border-radius: 12px; background: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.08); padding: 16px 20px; font-size: 14px; line-height: 1.6; color: var(--text-main); outline: none; cursor: default; transition: all 0.2s ease;"></textarea>
+        </div>
+
+        <!-- Action buttons — filled by JS -->
+        <div id="arena-action-area" style="width:100%; border-top:1px solid var(--border-glass); padding-top:15px; z-index:10; display:flex; justify-content:center; gap:15px; flex-wrap:wrap;"></div>
+    </div>
+
+    <!-- ══════════════════ RIGHT: EVALUATION ══════════════════ -->
+    <div class="glass-container" id="evaluation-feedback-panel" style="min-height:600px; display:none;">
+        <h3 style="margin-bottom:15px; font-size:16px; display:flex; align-items:center; gap:8px;">🤖 Real-Time AI Grading Evaluation</h3>
+
+        <div id="feedback-skeleton" style="display:none; padding:20px 0;">
+            <div style="display:flex; gap:20px; margin-bottom:20px;">
+                <div class="skeleton" style="height:80px; width:80px; border-radius:50%;"></div>
+                <div style="flex:1; display:grid; gap:10px;">
+                    <div class="skeleton" style="height:20px; width:40%;"></div>
+                    <div class="skeleton" style="height:15px; width:80%;"></div>
+                </div>
+            </div>
+            <div class="skeleton" style="height:60px; margin-bottom:15px;"></div>
+            <div class="skeleton" style="height:60px;"></div>
+        </div>
+
+        <div id="feedback-real-content">
+            <div style="display:flex; gap:20px; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border-glass); border-radius:8px; padding:15px; margin-bottom:20px;">
+                <div style="text-align:center;">
+                    <div style="font-size:36px; font-weight:700; color:var(--text-green);" id="eval-score-overall">—</div>
+                    <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Overall</div>
+                </div>
+                <div style="flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px;">
+                    <div>Technical: <strong id="eval-score-technical" style="color:var(--text-main);">—</strong>/10</div>
+                    <div>Communication: <strong id="eval-score-communication" style="color:var(--text-main);">—</strong>/10</div>
+                </div>
+            </div>
+            <div style="display:grid; gap:15px; font-size:13px; max-height:400px; overflow-y:auto; padding-right:5px;">
+                <div>
+                    <h4 style="color:var(--text-green); margin-bottom:4px;">✅ Key Strengths:</h4>
+                    <ul id="eval-strengths-list" style="padding-left:15px; color:var(--text-muted);"></ul>
+                </div>
+                <div>
+                    <h4 style="color:var(--text-red); margin-bottom:4px;">⚠️ Areas of Improvement:</h4>
+                    <ul id="eval-weaknesses-list" style="padding-left:15px; color:var(--text-muted);"></ul>
+                </div>
+                <div>
+                    <h4 style="color:var(--accent-secondary); margin-bottom:4px;">🏷️ Missing Concepts:</h4>
+                    <p id="eval-missing-concepts" style="color:var(--text-muted);"></p>
+                </div>
+                <div style="background:rgba(99,102,241,0.05); border:1px solid var(--border-glass); border-radius:6px; padding:12px;">
+                    <h4 style="color:var(--accent-primary); margin-bottom:4px;">💡 Ideal Answer:</h4>
+                    <p id="eval-ideal-answer" style="color:var(--text-muted); font-style:italic; line-height:1.4;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+/* ================================================================
+   ARENA VOICE ENGINE  —  inline so there is zero caching issue
+   ================================================================ */
+(function() {
+
+  /* ── state ── */
+  const SESSION_ID      = document.getElementById('interview-arena').dataset.sessionId;
+  let   questionId      = null;
+  let   arenaTimer      = null;
+  let   secsLeft        = 120;
+  let   elapsed         = 0;
+  let   wantListening   = false;
+  let   finalText       = '';
+  let   wavRecorder     = null;
+  let   recordStream    = null;
+  let   liveInterval    = null;
+  let   isFirstRecordingOfQuestion = true;
+
+  // Pure JS WAV audio compiler
+  class WavAudioRecorder {
+    constructor(stream) {
+      this.stream = stream;
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.source = this.audioContext.createMediaStreamSource(stream);
+      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.leftchannel = [];
+      this.recordingLength = 0;
+    }
+    start() {
+      this.leftchannel = [];
+      this.recordingLength = 0;
+      this.source.connect(this.processor);
+      this.processor.connect(this.audioContext.destination);
+      this.processor.onaudioprocess = (e) => {
+        this.leftchannel.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        this.recordingLength += 4096;
+      };
+    }
+    getWavBlob() {
+      if (this.recordingLength === 0) return null;
+      const leftBuffer = this.mergeBuffers(this.leftchannel, this.recordingLength);
+      const buffer = new ArrayBuffer(44 + this.recordingLength * 2);
+      const view = new DataView(buffer);
+      const sampleRate = this.audioContext.sampleRate;
+      
+      this.writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + this.recordingLength * 2, true);
+      this.writeString(view, 8, 'WAVE');
+      this.writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      this.writeString(view, 36, 'data');
+      view.setUint32(40, this.recordingLength * 2, true);
+      this.floatTo16BitPCM(view, 44, leftBuffer);
+      
+      return new Blob([view], { type: 'audio/wav' });
+    }
+    stop() {
+      this.processor.disconnect();
+      this.source.disconnect();
+      return this.getWavBlob();
+    }
+    mergeBuffers(channelBuffer, recordingLength) {
+      const result = new Float32Array(recordingLength);
+      let offset = 0;
+      for (let i = 0; i < channelBuffer.length; i++) {
+        result.set(channelBuffer[i], offset);
+        offset += channelBuffer[i].length;
+      }
+      return result;
+    }
+    writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+    floatTo16BitPCM(output, offset, input) {
+      for (let i = 0; i < input.length; i++, offset += 2) {
+        let s = Math.max(-1, Math.min(1, input[i]));
+        output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+    }
+  }
+
+  /* ── DOM shortcut ── */
+  const $ = id => document.getElementById(id);
+
+  /* ── avatar helper ── */
+  function botState(s) {
+    const bWrapper = $('bot-wave-wrapper');
+    const bIcon = $('bot-icon');
+    const statusEl = $('arena-status-indicator');
+    if (!bWrapper || !bIcon || !statusEl) return;
+    
+    bWrapper.classList.remove('speaking-active','listening-active');
+    if (s==='speaking') { bWrapper.classList.add('speaking-active');  bIcon.innerText='🗣️'; statusEl.style.display='inline-block'; statusEl.innerText='● Bot speaking...'; statusEl.style.color='#a78bfa'; }
+    if (s==='listening'){ bWrapper.classList.add('listening-active'); bIcon.innerText='🎙️'; statusEl.style.display='inline-block'; statusEl.innerText='● Mic live — speak now'; statusEl.style.color='#fbbf24'; }
+    if (s==='idle')     { bIcon.innerText='🤖'; statusEl.style.display='none'; }
+  }
+
+  /* ── getCookie helper ── */
+  function getCookie(n) {
+    let v=null;
+    document.cookie.split(';').forEach(c=>{c=c.trim();if(c.startsWith(n+'='))v=decodeURIComponent(c.slice(n.length+1));});
+    return v;
+  }
+
+  /* ══════════════ FETCH QUESTION ══════════════ */
+  function fetchQuestion() {
+    try {
+      stopSR();
+    } catch(e) {
+      console.warn("Error stopping speech recognition: ", e);
+    }
+    try {
+      speechSynthesis.cancel();
+    } catch(e) {
+      console.warn("Error cancelling speech synthesis: ", e);
+    }
+    clearInterval(arenaTimer);
+    
+    // Reset question ID immediately to prevent old transcription leakage
+    questionId = null;
+    
+    const ta = $('arena-answer-text');
+    if (ta) { ta.value=''; ta.disabled=false; }
+    
+    finalText = '';
+    isFirstRecordingOfQuestion = true;
+    
+    const feedPan = $('evaluation-feedback-panel');
+    if (feedPan) feedPan.style.display='none';
+    
+    const skel = $('arena-skeleton');
+    if (skel) skel.style.display='block';
+    
+    const subBar = $('subtitle-bar');
+    if (subBar) subBar.style.display='none';
+    
+    botState('idle');
+
+    fetch(`/interviews/api/${SESSION_ID}/next-question/`)
+      .then(r=>r.json())
+      .then(d=>{
+        if (skel) skel.style.display='none';
+        if(d.status==='completed'){ window.location.href=d.redirect_url; return; }
+        
+        const qText = $('arena-question-text');
+        if (qText) qText.innerText = d.question_text;
+        
+        const qRound = $('arena-question-round');
+        if (qRound) qRound.innerText = `Round ${d.round} of 5`;
+        
+        const qDiff = $('arena-difficulty-level');
+        if (qDiff) qDiff.innerText = `Difficulty: ${d.difficulty_level}/10`;
+        
+        questionId = d.question_id;
+        
+        // Double-clear answer box to ensure no background transcription leaked during the fetch window
+        const cleanTa = $('arena-answer-text');
+        if (cleanTa) cleanTa.value = '';
+
+        const voiceOn = $('voice-mode-toggle') ? $('voice-mode-toggle').checked : true;
+        
+        // Render buttons in disabled state first if voice reading is active
+        renderButtons(voiceOn, voiceOn);
+        
+        voiceOn ? speakThenListen(d.question_text) : startTimer();
+      })
+      .catch(e=>{
+        if (skel) skel.style.display='none';
+        const qText = $('arena-question-text');
+        if (qText) qText.innerText='Failed to load. Refresh.';
+        console.error(e);
+      });
+  }
+
+  /* ══════════════ TTS ══════════════ */
+  function speakThenListen(text) {
+    speechSynthesis.cancel();
+    botState('speaking');
+    
+    const ta = $('arena-answer-text');
+    if (ta) { ta.disabled=true; ta.placeholder='Bot is reading the question...'; }
+
+    const u   = new SpeechSynthesisUtterance(text);
+    u.lang    = 'en-US';
+    u.rate    = 0.95;
+
+    let done = false;
+    function onDone() {
+      if(done) return; done=true;
+      if (ta) {
+        ta.disabled=false;
+        ta.placeholder='Press 🎙️ Start Recording then speak your answer';
+        ta.focus();
+      }
+      botState('idle');
+      
+      // Bot finished reading - enable mic recording buttons!
+      const voiceOn = $('voice-mode-toggle') ? $('voice-mode-toggle').checked : true;
+      renderButtons(voiceOn, false);
+      
+      secsLeft=120; elapsed=0;
+      startTimer();
+    }
+    
+    const ms = Math.max(5000, text.split(' ').length * 90 + 2000);
+    const t  = setTimeout(onDone, ms);
+    u.onend  = ()=>{ clearTimeout(t); onDone(); };
+    speechSynthesis.speak(u);
+  }
+
+  /* ══════════════ SPEECH RECOGNITION ══════════════ */
+  function startSR() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Microphone capture is not supported in this browser.");
+      return;
+    }
+
+    // Defensively clean up any previous record stream or recorder
+    try {
+      if (wavRecorder) {
+        wavRecorder.stop();
+        wavRecorder = null;
+      }
+      if (recordStream) {
+        recordStream.getTracks().forEach(t => t.stop());
+        recordStream = null;
+      }
+    } catch(e) {
+      console.warn("Error cleaning up hanging recorder stream: ", e);
+    }
+
+    wantListening = true;
+    const ta = $('arena-answer-text');
+    
+    // Clear textarea on first record action of the question, append on subsequent ones
+    if (isFirstRecordingOfQuestion) {
+      if (ta) ta.value = '';
+      finalText = '';
+      isFirstRecordingOfQuestion = false;
+    } else {
+      finalText = ta ? (ta.value.trim() ? ta.value.trim() + ' ' : '') : '';
+    }
+
+    // Show subtitle UI
+    const subBar = $('subtitle-bar');
+    if (subBar) subBar.style.display='flex';
+    
+    const subFin = $('sub-final');
+    if (subFin) subFin.innerText = finalText;
+    
+    const subInt = $('sub-interim');
+    if (subInt) subInt.innerText = ' (listening...)';
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        recordStream = stream;
+        wavRecorder = new WavAudioRecorder(stream);
+        wavRecorder.start();
+        botState('listening');
+        console.log('[WavAudioRecorder] started recording');
+        
+        // Setup 3-second live transcribing interval loops
+        clearInterval(liveInterval);
+        liveInterval = setInterval(transcribeLiveSlice, 3000);
+      })
+      .catch(err => {
+        console.error('[WavAudioRecorder] error opening microphone:', err);
+        alert('🚫 Microphone blocked!\n\nClick the 🔒 lock icon next to the URL → Microphone → Allow → refresh.');
+        stopSR();
+        botState('idle');
+      });
+  }
+
+  function uploadAndTranscribeAudio(blob) {
+    const ta = $('arena-answer-text');
+    if (ta) {
+      ta.disabled = true;
+      ta.placeholder = "🎙️ transcribing audio from microphone using AI (Whisper)...";
+    }
+    
+    const currentQ = questionId; // capture active question ID
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.wav');
+    
+    fetch(`/interviews/api/${SESSION_ID}/transcribe/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: formData
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (ta && questionId === currentQ) {
+        ta.disabled = false;
+        if (d.status === 'success' && d.transcript) {
+          ta.value = finalText + d.transcript;
+          ta.placeholder = "Speak or type your answer here...";
+        } else {
+          ta.placeholder = "Failed to transcribe audio. Please type your answer here.";
+          if (d.error && d.error.includes("GROQ_API_KEY")) {
+            alert("Audio file was recorded, but GROQ_API_KEY is not configured in your .env file.");
+          }
+        }
+      }
+    })
+    .catch(err => {
+      if (ta && questionId === currentQ) {
+        ta.disabled = false;
+        ta.placeholder = "Failed to transcribe audio. Please type your answer here.";
+      }
+      console.error("Transcription exception: ", err);
+    });
+  }
+
+  function stopSR() {
+    wantListening = false;
+    clearInterval(liveInterval);
+    try {
+      if (wavRecorder) {
+        const audioBlob = wavRecorder.stop();
+        wavRecorder = null;
+        if (recordStream) {
+          recordStream.getTracks().forEach(t => t.stop());
+          recordStream = null;
+        }
+        uploadAndTranscribeAudio(audioBlob);
+      }
+    } catch(e) {
+      console.warn("Exception during WavAudioRecorder stop: ", e);
+    }
+    const subBar = $('subtitle-bar');
+    if (subBar) subBar.style.display='none';
+    const subInt = $('sub-interim');
+    if (subInt) subInt.innerText='';
+  }
+
+  function transcribeLiveSlice() {
+    if (!wavRecorder || !wantListening) return;
+    const blob = wavRecorder.getWavBlob();
+    if (!blob) return;
+
+    const currentQ = questionId; // capture active question ID
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.wav');
+
+    fetch(`/interviews/api/${SESSION_ID}/transcribe/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      body: formData
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (wantListening && questionId === currentQ && d.status === 'success' && d.transcript) {
+        const ta = $('arena-answer-text');
+        if (ta) ta.value = finalText + d.transcript;
+        
+        const subFin = $('sub-final');
+        if (subFin) subFin.innerText = finalText + d.transcript;
+        
+        const subInt = $('sub-interim');
+        if (subInt) subInt.innerText = ' (live syncing...)';
+      }
+    })
+    .catch(err => {
+      console.warn("Live transcription slice failed:", err);
+    });
+  }
+
+  /* ══════════════ TIMER ══════════════ */
+  function startTimer() {
+    clearInterval(arenaTimer);
+    arenaTimer = setInterval(()=>{
+      secsLeft--; elapsed++;
+      const m = String(Math.floor(secsLeft/60)).padStart(2,'0');
+      const s = String(secsLeft%60).padStart(2,'0');
+      const timerEl = $('arena-timer-display');
+      if (timerEl) timerEl.innerText = `${m}:${s}`;
+      if (secsLeft<=0) { clearInterval(arenaTimer); submitAnswer(); }
+    }, 1000);
+  }
+
+  /* ══════════════ RENDER BUTTONS ══════════════ */
+  function renderButtons(voiceOn, isBotSpeaking = false) {
+    const actionArea = $('arena-action-area');
+    if (!actionArea) return;
+    
+    if (voiceOn) {
+      if (isBotSpeaking) {
+        actionArea.innerHTML = `
+          <button id="mic-btn" disabled style="
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius:50px; padding:10px 22px; color:var(--text-muted);
+            font-size:14px; font-weight:700; cursor:not-allowed; opacity:0.6;
+            display:flex; align-items:center; gap:8px;">
+            🤖 Reading Question...
+          </button>
+          <button id="sub-btn" class="btn-primary" disabled style="opacity:0.5; cursor:not-allowed;">Submit Answer</button>`;
+      } else {
+        actionArea.innerHTML = `
+          <button id="mic-btn" style="
+            background:linear-gradient(135deg,#7c3aed,#6366f1);
+            border:none; border-radius:50px; padding:10px 22px; color:#fff;
+            font-size:14px; font-weight:700; cursor:pointer;
+            box-shadow:0 0 20px rgba(99,102,241,0.4); display:flex; align-items:center; gap:8px;">
+            🎙️ Start Recording
+          </button>
+          <button id="sub-btn" class="btn-primary">Submit Answer</button>`;
+
+        let recording = false;
+        const micBtn = $('mic-btn');
+        if (micBtn) {
+          micBtn.onclick = () => {
+            if (!recording) {
+              recording = true;
+              micBtn.innerHTML = '⏹ Stop Recording';
+              micBtn.style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+              micBtn.style.boxShadow  = '0 0 20px rgba(239,68,68,0.5)';
+              startSR();
+            } else {
+              recording = false;
+              micBtn.innerHTML = '🎙️ Start Recording';
+              micBtn.style.background = 'linear-gradient(135deg,#7c3aed,#6366f1)';
+              micBtn.style.boxShadow  = '0 0 20px rgba(99,102,241,0.4)';
+              stopSR();
+              botState('idle');
+            }
+          };
+        }
+      }
+    } else {
+      actionArea.innerHTML = `<button id="sub-btn" class="btn-primary">Submit Answer</button>`;
+    }
+    const subBtn = $('sub-btn');
+    if (subBtn) subBtn.onclick = submitAnswer;
+  }
+
+  /* ══════════════ SUBMIT ══════════════ */
+  function submitAnswer() {
+    clearInterval(arenaTimer);
+    stopSR();
+    speechSynthesis.cancel();
+    botState('idle');
+
+    const ta = $('arena-answer-text');
+    if (!ta) return;
+    
+    const text = ta.value.trim();
+    if (!text) { alert('Please speak or type an answer first.'); return; }
+
+    ta.disabled = true;
+    
+    const feedPan = $('evaluation-feedback-panel');
+    if (feedPan) feedPan.style.display = 'block';
+    
+    const skeleton = $('feedback-skeleton');
+    if (skeleton) skeleton.style.display = 'block';
+    
+    const feedbackContent = $('feedback-real-content');
+    if (feedbackContent) feedbackContent.style.display = 'none';
+
+    fetch(`/interviews/api/${SESSION_ID}/submit-answer/`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ question_id: questionId, answer_text: text, response_time_seconds: elapsed })
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      if (skeleton) skeleton.style.display='none';
+      if (feedbackContent) feedbackContent.style.display='block';
+      
+      const overall = $('eval-score-overall');
+      if (overall) overall.innerText = d.scores.overall;
+      
+      const tech = $('eval-score-technical');
+      if (tech) tech.innerText = d.scores.technical;
+      
+      const comm = $('eval-score-communication');
+      if (comm) comm.innerText = d.scores.communication;
+      
+      const strengths = $('eval-strengths-list');
+      if (strengths) strengths.innerHTML = d.strengths.map(s=>`<li>${s}</li>`).join('');
+      
+      const weaknesses = $('eval-weaknesses-list');
+      if (weaknesses) weaknesses.innerHTML = d.weaknesses.map(w=>`<li>${w}</li>`).join('');
+      
+      const missing = $('eval-missing-concepts');
+      if (missing) missing.innerText = d.missing_concepts.length ? d.missing_concepts.join(', ') : 'None';
+      
+      const ideal = $('eval-ideal-answer');
+      if (ideal) ideal.innerText = d.ideal_answer;
+
+      const actionArea = $('arena-action-area');
+      if (actionArea) {
+        actionArea.innerHTML = `<button id="nxt-btn" class="btn-primary">Next Question →</button>`;
+        const nxtBtn = $('nxt-btn');
+        if (nxtBtn) nxtBtn.onclick = fetchQuestion;
+      }
+    })
+    .catch(e=>{
+      console.error(e);
+      alert('Submit failed. Try again.');
+      ta.disabled=false;
+      if (feedPan) feedPan.style.display='none';
+    });
+  }
+
+  /* ── Request mic permission immediately on load ── */
+  navigator.mediaDevices && navigator.mediaDevices.getUserMedia({audio:true})
+    .then(s=>{ s.getTracks().forEach(t=>t.stop()); console.log('[Mic] permission granted'); })
+    .catch(e=>{ console.warn('[Mic] permission denied:', e.name); });
+
+  /* ── Voice-mode toggle ── */
+  $('voice-mode-toggle').onchange = () => {
+    if (!$('voice-mode-toggle').checked) { stopSR(); botState('idle'); }
+  };
+
+  /* ── Kick off ── */
+  fetchQuestion();
+
+})();
+</script>
+{% endblock %}

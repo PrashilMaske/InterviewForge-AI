@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎙️ Live Captioning — InterviewForge AI</title>
+<style>
+  :root {
+    --bg-dark: #0a0e17;
+    --card-glass: rgba(255, 255, 255, 0.03);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --accent-primary: #6366f1;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+  .glass-card {
+    background: var(--card-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 24px;
+    padding: 40px;
+    width: 720px;
+    max-width: 95vw;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #a78bfa, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 30px;
+  }
+  
+  /* Caption Display Area */
+  .caption-display {
+    min-height: 160px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .caption-text {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--text-main);
+    word-break: break-word;
+    text-align: center;
+  }
+  .caption-text .interim {
+    color: #a78bfa;
+    font-style: italic;
+  }
+  .caption-text .placeholder {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 16px;
+  }
+
+  /* Control buttons */
+  .control-row {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 24px;
+  }
+  button {
+    padding: 14px 28px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-start {
+    background: linear-gradient(135deg, #7c3aed, #6366f1);
+    color: #fff;
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
+  }
+  .btn-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 35px rgba(99, 102, 241, 0.6);
+  }
+  .btn-stop {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: #fff;
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+  }
+  .btn-stop:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
+  }
+
+  /* Badges */
+  .badge-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    color: var(--text-muted);
+  }
+  .badge.live {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #10b981;
+    animation: statusPulse 1.8s infinite;
+  }
+
+  /* Diagnostics guide */
+  .diag-box {
+    text-align: left;
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 12px;
+    padding: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .diag-title {
+    font-weight: 700;
+    color: #818cf8;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  @keyframes statusPulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; transform: scale(1.02); }
+  }
+</style>
+</head>
+<body>
+
+<div class="glass-card">
+  <h1>🎙️ Real-Time Live Captioning</h1>
+  <p class="desc">Tests real-time speech translation as you talk. Speak into your microphone to verify.</p>
+
+  <div class="badge-container">
+    <span class="badge" id="badge-api">Web Speech API</span>
+    <span class="badge" id="badge-status">Status: Idle</span>
+  </div>
+
+  <div class="caption-display">
+    <p class="caption-text" id="display-para">
+      <span class="placeholder">Click "Start Captioning" and begin speaking to see live transcripts here...</span>
+    </p>
+  </div>
+
+  <div class="control-row">
+    <button class="btn-start" id="ctrl-btn" onclick="toggleCaptioning()">▶ Start Captioning</button>
+  </div>
+
+  <div class="diag-box">
+    <div class="diag-title">💡 Network & Browser Guidelines</div>
+    <p style="color: var(--text-muted); margin-bottom: 6px;">
+      Google Chrome’s speech engine streams audio to Google's cloud servers. If your school, corporate firewall, or VPN restricts these cloud connections, Chrome will fail to return transcripts.
+    </p>
+    <p style="color: #fbbf24; font-weight: 500;">
+      👉 <strong>Recommended Fallback:</strong> If no text is showing here, open this page in <strong>Microsoft Edge</strong>. Edge uses Microsoft's built-in offline/online speech services which are highly reliable.
+    </p>
+  </div>
+</div>
+
+<script>
+const SESSION_ID = "{{ session_id }}";
+let active = false;
+let wavRecorder = null;
+let recordStream = null;
+let liveInterval = null;
+
+// Pure JS WAV audio compiler
+class WavAudioRecorder {
+  constructor(stream) {
+    this.stream = stream;
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.source = this.audioContext.createMediaStreamSource(stream);
+    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    this.leftchannel = [];
+    this.recordingLength = 0;
+  }
+  start() {
+    this.leftchannel = [];
+    this.recordingLength = 0;
+    this.source.connect(this.processor);
+    this.processor.connect(this.audioContext.destination);
+    this.processor.onaudioprocess = (e) => {
+      this.leftchannel.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      this.recordingLength += 4096;
+    };
+  }
+  getWavBlob() {
+    if (this.recordingLength === 0) return null;
+    const leftBuffer = this.mergeBuffers(this.leftchannel, this.recordingLength);
+    const buffer = new ArrayBuffer(44 + this.recordingLength * 2);
+    const view = new DataView(buffer);
+    const sampleRate = this.audioContext.sampleRate;
+    
+    this.writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + this.recordingLength * 2, true);
+    this.writeString(view, 8, 'WAVE');
+    this.writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    this.writeString(view, 36, 'data');
+    view.setUint32(40, this.recordingLength * 2, true);
+    this.floatTo16BitPCM(view, 44, leftBuffer);
+    
+    return new Blob([view], { type: 'audio/wav' });
+  }
+  stop() {
+    this.processor.disconnect();
+    this.source.disconnect();
+    return this.getWavBlob();
+  }
+  mergeBuffers(channelBuffer, recordingLength) {
+    const result = new Float32Array(recordingLength);
+    let offset = 0;
+    for (let i = 0; i < channelBuffer.length; i++) {
+      result.set(channelBuffer[i], offset);
+      offset += channelBuffer[i].length;
+    }
+    return result;
+  }
+  writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+  floatTo16BitPCM(output, offset, input) {
+    for (let i = 0; i < input.length; i++, offset += 2) {
+      let s = Math.max(-1, Math.min(1, input[i]));
+      output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+  }
+}
+
+const displayEl = document.getElementById('display-para');
+const badgeEl   = document.getElementById('badge-status');
+const btnEl     = document.getElementById('ctrl-btn');
+
+function toggleCaptioning() {
+  if (!active) {
+    startListening();
+  } else {
+    stopListening();
+  }
+}
+
+function startListening() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Microphone capture is not supported in this browser.");
+    return;
+  }
+
+  active = true;
+  displayEl.innerHTML = '<span class="placeholder">🎙️ Microphone is active. Speak now...</span>';
+  
+  badgeEl.innerText = "Status: Transcribing";
+  badgeEl.className = "badge live";
+  
+  btnEl.innerText = "⏹ Stop Captioning";
+  btnEl.className = "btn-stop";
+
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      recordStream = stream;
+      wavRecorder = new WavAudioRecorder(stream);
+      wavRecorder.start();
+      
+      // Setup 3-second live captioning transcription slices
+      liveInterval = setInterval(transcribeLiveSlice, 3000);
+    })
+    .catch(err => {
+      console.error(err);
+      displayEl.innerHTML = '<span style="color:#f87171;">🚫 Microphone access blocked. Please allow mic permissions in your URL bar.</span>';
+      stopListening();
+    });
+}
+
+function transcribeLiveSlice() {
+  if (!wavRecorder || !active) return;
+  
+  const blob = wavRecorder.getWavBlob();
+  if (!blob) return;
+
+  if (!SESSION_ID) {
+    displayEl.innerHTML = '<span style="color:#fbbf24;">⚠️ No interview session ID found. Please go back and start a Mock Drill to enable live Whisper captioning.</span>';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('audio', blob, 'audio.wav');
+  
+  // Get CSRF cookie
+  let csrf = null;
+  document.cookie.split(';').forEach(c => {
+    c = c.trim();
+    if (c.startsWith('csrftoken=')) csrf = decodeURIComponent(c.slice(10));
+  });
+
+  fetch(`/interviews/api/${SESSION_ID}/transcribe/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf },
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (active && data.status === 'success' && data.transcript) {
+      displayEl.innerHTML = `<span>${data.transcript}</span> <span class="interim" style="font-size:13px; opacity:0.7;">(live sync...)</span>`;
+    }
+  })
+  .catch(err => {
+    console.warn("Transcription slice failure:", err);
+  });
+}
+
+function stopListening() {
+  active = false;
+  clearInterval(liveInterval);
+  
+  if (wavRecorder) {
+    wavRecorder.stop();
+    wavRecorder = null;
+  }
+  if (recordStream) {
+    recordStream.getTracks().forEach(t => t.stop());
+    recordStream = null;
+  }
+
+  badgeEl.innerText = "Status: Idle";
+  badgeEl.className = "badge";
+  btnEl.innerText = "▶ Start Captioning";
+  btnEl.className = "btn-start";
+  
+  if (displayEl.innerHTML.includes("Microphone is active")) {
+    displayEl.innerHTML = '<span class="placeholder">Click "Start Captioning" and begin speaking to see live transcripts here...</span>';
+  }
+}
+</script>
+</body>
+</html>

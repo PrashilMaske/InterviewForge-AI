@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Start Mock Interview - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 40px auto;">
+    <div class="glass-container">
+        <h2 style="margin-bottom: 8px;">Plan Your Mock Interview</h2>
+        <p style="margin-bottom: 24px;">Configure your technical mock run. The engine will read your chosen resume and target job details to custom-build question sets dynamically.</p>
+        
+        <form method="POST" action="{% url 'start_interview' %}">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted);">Choose Resume Version</label>
+                <select name="resume_id" required>
+                    {% for r in resumes %}
+                        <option value="{{ r.id }}" {% if forloop.first %}selected{% endif %}>v{{ r.version }} - {{ r.file_name }}</option>
+                    {% empty %}
+                        <option disabled>Please upload a resume first before starting interviews.</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted);">Choose Job Description (Optional)</label>
+                <select name="jd_id">
+                    <option value="">None (Generic industry benchmarking)</option>
+                    {% for jd in jds %}
+                        <option value="{{ jd.id }}">{{ jd.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted);">Focus Role / Topic</label>
+                <select name="interview_type" required>
+                    <option value="Python & Django Core">Python & Django Core</option>
+                    <option value="Frontend Development (React)">Frontend Development (React)</option>
+                    <option value="SQL & Database Performance">SQL & Database Performance</option>
+                    <option value="System Design & Scalability">System Design & Scalability</option>
+                    <option value="HR & Behavioral (STAR)">HR & Behavioral (STAR)</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted);">Interview Mode</label>
+                <select name="difficulty" required>
+                    <option value="adaptive" selected>Adaptive (Difficulty responds to your replies)</option>
+                    <option value="easy">Standard - Easy</option>
+                    <option value="medium">Standard - Medium</option>
+                    <option value="hard">Standard - Hard</option>
+                </select>
+            </div>
+            
+            <div style="text-align: right;">
+                {% if resumes %}
+                    <button type="submit" class="btn-primary">Initialize Mock Arena</button>
+                {% else %}
+                    <a href="{% url 'resume_upload' %}" class="btn-primary" style="display: inline-block; text-decoration: none; text-align: center;">Upload Resume to Unlock</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

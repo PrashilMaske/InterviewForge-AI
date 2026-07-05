@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview Report - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{% url 'dashboard' %}" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">&larr; Back to Dashboard</a>
+    {% if report.pdf_url %}
+        <a href="{{ report.pdf_url }}" class="btn-primary" target="_blank" download>Download PDF Report</a>
+    {% endif %}
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-bottom: 40px;">
+    <!-- Score wheel and status -->
+    <div class="glass-container" style="text-align: center; display: flex; flex-direction: column; justify-content: center;">
+        <h3 style="margin-bottom: 10px;">Readiness Score</h3>
+        <div style="margin: 20px 0;">
+            <span style="font-size: 76px; font-weight: 700; color: var(--text-green);">{{ report.readiness_score }}%</span>
+        </div>
+        <p style="font-size: 13px;">Benchmarked against target criteria for <b>{{ session.interview_type }}</b></p>
+    </div>
+    
+    <!-- AI Verdict & Recommended courses/projects summary -->
+    <div class="glass-container">
+        <h3 style="margin-bottom: 15px;">Target Technical Recommendations</h3>
+        <h4 style="font-size: 14px; color: var(--accent-primary); margin-bottom: 8px;">🛠️ Recommended Practice Exercises:</h4>
+        <ul style="padding-left: 20px; font-size: 13px; color: var(--text-muted); margin-bottom: 20px; display: grid; gap: 6px;">
+            {% for proj in report.projects_recommended %}
+                <li>{{ proj }}</li>
+            {% endfor %}
+        </ul>
+        
+        <h4 style="font-size: 14px; color: var(--accent-secondary); margin-bottom: 8px;">🎓 Curated Learning Pathways:</h4>
+        <ul style="padding-left: 20px; font-size: 13px; color: var(--text-muted); display: grid; gap: 6px;">
+            {% for course in report.courses_recommended %}
+                <li>{{ course }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Detailed Q&A Log -->
+<div class="glass-container" style="margin-bottom: 40px;">
+    <h3 style="margin-bottom: 20px;">📝 Question & Feedback Log</h3>
+    <div style="display: grid; gap: 30px;">
+        {% for q in session.questions.all %}
+            <div style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                    <h4 style="font-size: 15px; color: var(--text-main); flex: 1;">Round {{ forloop.counter }}: {{ q.question_text }}</h4>
+                    {% if q.answer and q.answer.evaluation %}
+                        <span style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-left: 15px;">
+                            Score: {{ q.answer.evaluation.overall_score }}/10
+                        </span>
+                    {% endif %}
+                </div>
+                
+                {% if q.answer %}
+                    <p style="font-size: 13px; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; margin-bottom: 15px; color: var(--text-muted);">
+                        <b>Your Answer:</b> {{ q.answer.answer_text }}
+                    </p>
+                    
+                    {% if q.answer.evaluation %}
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 13px; margin-bottom: 15px;">
+                            <div>
+                                <strong style="color: var(--text-green);">Strengths:</strong>
+                                <ul style="padding-left: 15px; color: var(--text-muted); margin-top: 4px;">
+                                    {% for s in q.answer.evaluation.strengths %}
+                                        <li>{{ s }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div>
+                                <strong style="color: var(--text-red);">Weaknesses:</strong>
+                                <ul style="padding-left: 15px; color: var(--text-muted); margin-top: 4px;">
+                                    {% for w in q.answer.evaluation.weaknesses %}
+                                        <li>{{ w }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px;">
+                            <strong style="color: var(--accent-secondary);">Missing Concepts:</strong>
+                            <p style="color: var(--text-muted); margin-top: 4px;">
+                                {{ q.answer.evaluation.missing_concepts|join:", " }}
+                            </p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p style="font-size: 13px; font-style: italic;">No answer provided.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Learning Roadmap -->
+<div class="glass-container">
+    <h3 style="margin-bottom: 25px;">🗺️ Personalized Week-by-Week Learning Roadmap</h3>
+    {% if learning_plan %}
+        <div class="timeline">
+            {% for item in learning_plan.roadmap_data.weeks %}
+                <div class="timeline-item">
+                    <h4 style="color: var(--accent-primary); margin-bottom: 6px;">Week {{ item.week }}: {{ item.topic }}</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-style: italic;">Estimated Commitment: {{ item.estimated_hours }} hours</p>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <strong style="font-size: 13px; color: var(--text-main);">Lessons to Cover:</strong>
+                        <ul style="padding-left: 20px; font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+                            {% for lesson in item.lessons %}
+                                <li>{{ lesson }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <strong style="font-size: 13px; color: var(--text-main);">Coding Exercise:</strong>
+                        <ul style="padding-left: 20px; font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+                            {% for ex in item.suggested_exercises %}
+                                <li>{{ ex }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Roadmap still processing. Refresh page in a minute.</p>
+    {% endif %}
+</div>
+{% endblock %}

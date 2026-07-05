@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🎙️ Voice Test — InterviewForge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d1117; color: #e5e7eb;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 40px; width: 620px; max-width: 96vw;
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #a78bfa; }
+  .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+  .status-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .badge {
+    font-size: 12px; padding: 4px 12px; border-radius: 20px; font-weight: 600;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  }
+  .badge.ok   { background: rgba(16,185,129,0.12); border-color: #10b981; color: #10b981; }
+  .badge.fail { background: rgba(239,68,68,0.12);  border-color: #ef4444; color: #ef4444; }
+  .badge.warn { background: rgba(251,191,36,0.12); border-color: #fbbf24; color: #fbbf24; }
+
+  button {
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 700;
+    cursor: pointer; border: none; transition: all 0.2s;
+  }
+  .btn-start {
+    background: linear-gradient(135deg, #7c3aed, #6366f1);
+    color: #fff; box-shadow: 0 0 20px rgba(99,102,241,0.4);
+  }
+  .btn-stop  {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: #fff; box-shadow: 0 0 20px rgba(239,68,68,0.4);
+  }
+  .btn-clear {
+    background: rgba(255,255,255,0.06);
+    color: #9ca3af; border: 1px solid rgba(255,255,255,0.1);
+    margin-left: 8px;
+  }
+
+  #subtitle-live {
+    margin: 20px 0;
+    min-height: 60px;
+    background: rgba(99,102,241,0.06);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 10px; padding: 12px 16px;
+    font-size: 15px; line-height: 1.6;
+  }
+  #subtitle-live .final   { color: #e5e7eb; }
+  #subtitle-live .interim { color: #9ca3af; font-style: italic; }
+
+  #log {
+    margin-top: 20px; font-size: 12px; font-family: monospace;
+    background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px;
+    max-height: 200px; overflow-y: auto; color: #6b7280;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  #log .info  { color: #60a5fa; }
+  #log .ok    { color: #34d399; }
+  #log .err   { color: #f87171; }
+  #log .warn  { color: #fbbf24; }
+  #log div { margin-bottom: 3px; }
+
+  #full-transcript {
+    margin-top: 16px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px;
+    font-size: 13px; min-height: 60px; color: #d1d5db;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  label { font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: #6b7280; display: block; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎙️ Voice Diagnostics</h1>
+  <p class="subtitle">Tests speech recognition step-by-step. Open browser console (F12) for extra detail.</p>
+
+  <div class="status-row" id="checks">
+    <span class="badge" id="chk-api">API: checking…</span>
+    <span class="badge" id="chk-https">Protocol: checking…</span>
+    <span class="badge" id="chk-mic">Mic permission: checking…</span>
+    <span class="badge" id="chk-rec">Recognition: idle</span>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <button class="btn-start" id="btn-start" onclick="startTest()">▶ Start Recording</button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </div>
+
+  <label>🔴 Live Subtitles (interim + final)</label>
+  <div id="subtitle-live">
+    <span class="final" id="sub-final"></span>
+    <span class="interim" id="sub-interim">Waiting for mic…</span>
+  </div>
+
+  <label style="margin-top:16px;">📝 Full Transcript (committed text)</label>
+  <div id="full-transcript"></div>
+
+  <div id="log"></div>
+</div>
+
+<script>
+const SESSION_ID = "{{ session_id }}";
+let rec = null;
+let running = false;
+let finalAccum = '';
+let wavRecorder = null;
+let recordStream = null;
+
+// Pure JS WAV audio compiler
+class WavAudioRecorder {
+  constructor(stream) {
+    this.stream = stream;
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.source = this.audioContext.createMediaStreamSource(stream);
+    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    this.leftchannel = [];
+    this.recordingLength = 0;
+  }
+  start() {
+    this.leftchannel = [];
+    this.recordingLength = 0;
+    this.source.connect(this.processor);
+    this.processor.connect(this.audioContext.destination);
+    this.processor.onaudioprocess = (e) => {
+      this.leftchannel.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      this.recordingLength += 4096;
+    };
+  }
+  stop() {
+    this.processor.disconnect();
+    this.source.disconnect();
+    const leftBuffer = this.mergeBuffers(this.leftchannel, this.recordingLength);
+    const buffer = new ArrayBuffer(44 + this.recordingLength * 2);
+    const view = new DataView(buffer);
+    const sampleRate = this.audioContext.sampleRate;
+    
+    this.writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + this.recordingLength * 2, true);
+    this.writeString(view, 8, 'WAVE');
+    this.writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    this.writeString(view, 36, 'data');
+    view.setUint32(40, this.recordingLength * 2, true);
+    this.floatTo16BitPCM(view, 44, leftBuffer);
+    
+    return new Blob([view], { type: 'audio/wav' });
+  }
+  mergeBuffers(channelBuffer, recordingLength) {
+    const result = new Float32Array(recordingLength);
+    let offset = 0;
+    for (let i = 0; i < channelBuffer.length; i++) {
+      result.set(channelBuffer[i], offset);
+      offset += channelBuffer[i].length;
+    }
+    return result;
+  }
+  writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+  floatTo16BitPCM(output, offset, input) {
+    for (let i = 0; i < input.length; i++, offset += 2) {
+      let s = Math.max(-1, Math.min(1, input[i]));
+      output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+  }
+}
+
+function log(msg, cls='info') {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.innerText = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  const logEl = document.getElementById('log');
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+  console.log(msg);
+}
+
+function setChk(id, text, cls) {
+  const el = document.getElementById(id);
+  el.innerText = text;
+  el.className = 'badge ' + cls;
+}
+
+// ── 1. Check API support
+(function checkSupport() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    setChk('chk-api', 'API: ✅ Supported', 'ok');
+    log('SpeechRecognition API available', 'ok');
+  } else {
+    setChk('chk-api', 'API: ❌ Not supported', 'fail');
+    log('SpeechRecognition NOT available — use Chrome/Edge', 'err');
+  }
+
+  // ── 2. Check protocol
+  const proto = location.protocol;
+  if (proto === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    setChk('chk-https', 'Protocol: ✅ ' + proto + '//' + location.hostname, 'ok');
+    log('Protocol OK: ' + proto + '//' + location.hostname, 'ok');
+  } else {
+    setChk('chk-https', 'Protocol: ⚠️ HTTP (non-localhost)', 'warn');
+    log('Non-HTTPS non-localhost — speech may be blocked', 'warn');
+  }
+
+  // ── 3. Request mic permission
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+        setChk('chk-mic', 'Mic: ✅ Granted', 'ok');
+        log('Microphone permission granted', 'ok');
+      })
+      .catch(e => {
+        setChk('chk-mic', 'Mic: ❌ ' + e.name, 'fail');
+        log('Mic permission error: ' + e.name + ' — ' + e.message, 'err');
+      });
+  } else {
+    setChk('chk-mic', 'Mic: ⚠️ API unavailable', 'warn');
+    log('navigator.mediaDevices not available', 'warn');
+  }
+})();
+
+function startTest() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (rec) { rec.onend = null; try { rec.stop(); } catch(e){} rec = null; }
+
+  running = true;
+  finalAccum = '';
+  document.getElementById('sub-final').innerText   = '';
+  document.getElementById('sub-interim').innerText = '';
+  document.getElementById('full-transcript').innerText = '';
+
+  // Start local WAV audio capture
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        recordStream = stream;
+        wavRecorder = new WavAudioRecorder(stream);
+        wavRecorder.start();
+        log("Local WAV Audio Recorder active & buffering audio...", "ok");
+      })
+      .catch(err => {
+        log("❌ Microphone capture failed: " + err.message, "err");
+      });
+  }
+
+  if (SR) {
+    rec = new SR();
+    rec.continuous      = true;
+    rec.interimResults  = true;
+    rec.lang            = 'en-US';
+
+    log('Creating SpeechRecognition(continuous=true, interimResults=true, lang=en-US)', 'info');
+
+    rec.onstart = () => {
+      log('✅ onstart fired — mic is now capturing audio', 'ok');
+      setChk('chk-rec', 'Recognition: 🔴 LIVE', 'ok');
+      document.getElementById('btn-start').outerHTML =
+        '<button class="btn-stop" id="btn-start" onclick="stopTest()">⏹ Stop Recording</button>';
+      document.getElementById('sub-interim').innerText = '(listening…)';
+    };
+
+    rec.onaudiostart = () => log('onaudiostart — audio stream opened', 'ok');
+    rec.onsoundstart = () => log('onsoundstart — sound level detected', 'ok');
+    rec.onspeechstart= () => log('onspeechstart — speech detected! 🎉', 'ok');
+    rec.onspeechend  = () => log('onspeechend — speech stopped', 'warn');
+    rec.onsoundend   = () => log('onsoundend — sound stopped', 'warn');
+    rec.onaudioend   = () => log('onaudioend — audio stream closed', 'warn');
+
+    rec.onresult = (event) => {
+      let interim = '';
+      let newFinal = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        const conf = event.results[i][0].confidence.toFixed(2);
+        if (event.results[i].isFinal) {
+          newFinal += t + ' ';
+          log(`✅ FINAL [conf:${conf}]: "${t}"`, 'ok');
+        } else {
+          interim += t;
+        }
+      }
+      if (newFinal) finalAccum += newFinal;
+      document.getElementById('sub-final').innerText   = finalAccum;
+      document.getElementById('sub-interim').innerText = interim;
+      if (!document.getElementById('full-transcript').innerText.trim()) {
+        document.getElementById('full-transcript').innerText = (finalAccum + interim).trim();
+      }
+      if (newFinal) log(`Interim: "${interim}"`, 'info');
+    };
+
+    rec.onerror = (e) => {
+      log('❌ onerror: ' + e.error + (e.message ? ' — ' + e.message : ''), 'err');
+      setChk('chk-rec', 'Recognition: ❌ ' + e.error, 'fail');
+      if (e.error === 'no-speech') return;
+      if (e.error === 'not-allowed') {
+        log('  FIX: Click lock icon → Microphone → Allow → Refresh', 'err');
+      }
+      if (e.error === 'network') {
+        log('  FIX: Speech API needs internet (sends audio to Google)', 'err');
+      }
+    };
+
+    rec.onend = () => {
+      log('onend fired. running=' + running, 'warn');
+      if (running) {
+        setChk('chk-rec', 'Recognition: restarting…', 'warn');
+        setTimeout(() => {
+          if (!running) return;
+          log('Restarting recognition…', 'info');
+          try {
+            rec.start();
+          } catch(e) {
+            log('Restart failed: ' + e.message + ' — creating fresh instance', 'err');
+            startTest();
+          }
+        }, 250);
+      } else {
+        setChk('chk-rec', 'Recognition: stopped', '');
+      }
+    };
+
+    try {
+      rec.start();
+      log('rec.start() called…', 'info');
+    } catch(e) {
+      log('start() threw: ' + e.message, 'err');
+    }
+  } else {
+    log('SpeechRecognition API not supported. Relying solely on local recording fallback.', 'warn');
+    setChk('chk-rec', 'Recognition: Local Fallback Only', 'warn');
+    document.getElementById('btn-start').outerHTML =
+      '<button class="btn-stop" id="btn-start" onclick="stopTest()">⏹ Stop Recording</button>';
+  }
+}
+
+function stopTest() {
+  running = false;
+  if (rec) { rec.onend = null; try { rec.stop(); } catch(e){} rec = null; }
+  
+  if (wavRecorder) {
+    log("MediaRecorder stopped. Compiling audio file as standard WAV...", "info");
+    const audioBlob = wavRecorder.stop();
+    wavRecorder = null;
+    
+    if (recordStream) {
+      recordStream.getTracks().forEach(t => t.stop());
+    }
+    
+    if (!SESSION_ID) {
+      log("⚠️ Cannot test Whisper translation fallback: No previous InterviewSession exists in your account. Start a mock drill first to generate a session ID!", "warn");
+    } else {
+      log("Uploading audio recording to backend Whisper API (/transcribe/)...", "info");
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.wav');
+      
+      let csrf = null;
+      document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith('csrftoken=')) csrf = decodeURIComponent(c.slice(10));
+      });
+      
+      fetch(`/interviews/api/${SESSION_ID}/transcribe/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf },
+        body: formData
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success' && data.transcript) {
+          log("🎉 Backend AI Whisper transcription succeeded!", "ok");
+          document.getElementById('full-transcript').innerText = data.transcript;
+          log("Transcribed Text: \"" + data.transcript + "\"", "ok");
+        } else {
+          log("❌ Transcription Failed: " + (data.error || "unknown error"), "err");
+        }
+      })
+      .catch(err => {
+        log("❌ Network / Server Error: " + err.message, "err");
+      });
+    }
+  }
+  
+  setChk('chk-rec', 'Recognition: stopped', '');
+  document.getElementById('btn-start').outerHTML =
+    '<button class="btn-start" id="btn-start" onclick="startTest()">▶ Start Recording</button>';
+  document.getElementById('sub-interim').innerText = '';
+  log('Stopped.', 'warn');
+}
+
+function clearAll() {
+  finalAccum = '';
+  document.getElementById('sub-final').innerText = '';
+  document.getElementById('sub-interim').innerText = '';
+  document.getElementById('full-transcript').innerText = '';
+  document.getElementById('log').innerHTML = '';
+}
+</script>
+</body>
+</html>

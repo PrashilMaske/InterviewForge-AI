@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Resume Audit Details - InterviewForge AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 30px;">
+    <a href="{% url 'dashboard' %}" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">&larr; Back to Dashboard</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-bottom: 40px;">
+    <!-- Score breakdowns -->
+    <div class="glass-container">
+        <h2 style="margin-bottom: 20px; text-align: center;">Audit Score</h2>
+        <div style="text-align: center; margin-bottom: 30px;">
+            <span style="font-size: 72px; font-weight: 700; color: var(--text-green);">{{ analysis.overall_score }}</span>
+            <span style="font-size: 24px; color: var(--text-muted);">/100</span>
+        </div>
+        
+        <h3 style="font-size: 15px; margin-bottom: 12px;">Category Benchmarks:</h3>
+        <div style="display: grid; gap: 12px; font-size: 13px;">
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Formatting & Flow</span>
+                    <span>{{ analysis.formatting_score }}/20</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                    <div style="height: 100%; background: var(--accent-primary); width: {% widthratio analysis.formatting_score 20 100 %}%; border-radius: 3px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>ATS Compatibility</span>
+                    <span>{{ analysis.ats_score }}/20</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                    <div style="height: 100%; background: var(--accent-secondary); width: {% widthratio analysis.ats_score 20 100 %}%; border-radius: 3px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Skills Grid</span>
+                    <span>{{ analysis.skills_score }}/20</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                    <div style="height: 100%; background: var(--text-green); width: {% widthratio analysis.skills_score 20 100 %}%; border-radius: 3px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Projects & Scope</span>
+                    <span>{{ analysis.projects_score }}/20</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">
+                    <div style="height: 100%; background: #fbbf24; width: {% widthratio analysis.projects_score 20 100 %}%; border-radius: 3px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Explanations and Auditing lists -->
+    <div class="glass-container">
+        <h3 style="margin-bottom: 15px;">AI Audit Breakdown</h3>
+        <div style="display: grid; gap: 20px;">
+            {% for section, explanation in analysis.section_explanations.items %}
+                <div style="border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 15px;">
+                    <h4 style="color: var(--accent-primary); text-transform: capitalize; font-size: 14px; margin-bottom: 4px;">
+                        {{ section }} Audit
+                    </h4>
+                    <p style="font-size: 14px;">{{ explanation }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="glass-container" style="margin-bottom: 40px;">
+    <h3 style="margin-bottom: 20px;">✍️ STAR Bullet Points Optimization Suggestions</h3>
+    {% if analysis.improved_bullets %}
+        <div style="display: grid; gap: 25px;">
+            {% for item in analysis.improved_bullets %}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px;">
+                    <div>
+                        <span style="font-size: 11px; background: rgba(248, 113, 113, 0.1); color: var(--text-red); padding: 2px 8px; border-radius: 4px; font-weight: 600;">Original</span>
+                        <p style="margin-top: 10px; font-size: 14px;">{{ item.original }}</p>
+                    </div>
+                    <div>
+                        <span style="font-size: 11px; background: rgba(52, 211, 153, 0.1); color: var(--text-green); padding: 2px 8px; border-radius: 4px; font-weight: 600;">AI Optimized (STAR)</span>
+                        <p style="margin-top: 10px; font-size: 14px; color: var(--text-main); font-weight: 500;">{{ item.improved }}</p>
+                        <p style="font-size: 12px; margin-top: 6px; font-style: italic;">Reason: {{ item.reason }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No optimization recommendations required for current bullets.</p>
+    {% endif %}
+</div>
+{% endblock %}

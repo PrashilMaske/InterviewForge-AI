@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InterviewForge AI{% endblock %}</title>
+    
+    <!-- Custom Style System -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <!-- Chart.js for premium graphics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Global Glass Header Navigation -->
+    <nav class="glass-nav">
+        <div class="nav-logo">
+            <a href="{% url 'index' %}" style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ⚡ InterviewForge AI
+            </a>
+        </div>
+        <div class="nav-links">
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}">Dashboard</a>
+                <a href="{% url 'resume_upload' %}">Upload Resume</a>
+                <a href="{% url 'start_interview' %}">Mock Drills</a>
+                <a href="{% url 'logout' %}" style="color: var(--text-red);">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}">Login</a>
+                <a href="{% url 'register' %}" class="btn-primary" style="padding: 6px 16px;">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main Dynamic Content Wrapper -->
+    <main style="max-width: 1200px; margin: 40px auto; padding: 0 20px; min-height: 80vh;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 40px 0; border-top: 1px solid var(--border-glass); color: var(--text-muted); font-size: 14px;">
+        <p>&copy; 2026 InterviewForge AI. All rights reserved.</p>
+    </footer>
+
+    <!-- Async interactions scripts -->
+    <script src="{% static 'js/main.js' %}?v={{ request.path|length }}{{ request.META.HTTP_HOST|length }}"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>
